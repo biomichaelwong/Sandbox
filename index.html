@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HKDSE 血液循環導航圖 (Subway Map Edition)</title>
+    <title>HKDSE 血液循環導航圖 (Precision & Visual Edition)</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -16,50 +16,25 @@
             align-items: center;
         }
         h1 {
-            color: #b51a1a;
-            text-align: center;
-            border-bottom: 2px solid #b51a1a;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-            width: 100%;
-            max-width: 1000px;
+            color: #b51a1a; text-align: center; border-bottom: 2px solid #b51a1a;
+            padding-bottom: 10px; margin-bottom: 20px; width: 100%; max-width: 1000px;
         }
         .main-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 30px;
-            max-width: 1100px;
-            width: 100%;
-            justify-content: center;
+            display: flex; flex-wrap: wrap; gap: 30px; max-width: 1100px;
+            width: 100%; justify-content: center;
         }
         .control-panel {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-            flex: 1;
-            min-width: 300px;
-            max-width: 400px;
-            display: flex;
-            flex-direction: column;
+            background: white; padding: 25px; border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1); flex: 1;
+            min-width: 300px; max-width: 400px; display: flex; flex-direction: column;
         }
         .map-panel {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-            flex: 1;
-            min-width: 500px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
+            background: white; padding: 20px; border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1); flex: 1;
+            min-width: 550px; display: flex; justify-content: center;
+            align-items: center; position: relative;
         }
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            margin-bottom: 15px;
-        }
+        .input-group { display: flex; flex-direction: column; margin-bottom: 15px; }
         label { font-weight: bold; margin-bottom: 5px; color: #2c3e50; }
         select {
             padding: 12px; border: 2px solid #e0e6ed; border-radius: 8px;
@@ -90,23 +65,26 @@
             width: 100%; height: auto; max-height: 750px;
             background-color: #ffffff; border-radius: 8px;
         }
-        .organ-node { fill: #fdf5e6; stroke: #f39c12; stroke-width: 2; rx: 8; }
-        .heart-node { fill: #ffebee; stroke: #e74c3c; stroke-width: 2; rx: 8; }
+        /* Text box overlay for organs */
+        .organ-node { fill: rgba(255,255,255,0.9); stroke: #555; stroke-width: 1.5; rx: 6; }
+        .heart-node { fill: #ffebee; stroke: #e74c3c; stroke-width: 2; rx: 6; }
         .vessel-path { fill: none; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+        
+        /* Colors */
         .oxygenated { stroke: #ff7675; }
         .deoxygenated { stroke: #74b9ff; }
         .portal { stroke: #a29bfe; }
+        
         text { font-family: sans-serif; font-size: 13px; font-weight: bold; fill: #2d3436; pointer-events: none; }
-        .label-bg { fill: rgba(255,255,255,0.8); }
     </style>
 </head>
 <body>
 
-    <h1>HKDSE 血液循環導航圖 (直角排版)</h1>
+    <h1>HKDSE 血液循環導航圖</h1>
     
     <div class="main-container">
         <div class="control-panel">
-            <p>請選擇起點和終點，觀察紅血球在「雙循環系統」中的直角路線。</p>
+            <p>請選擇起點和終點。紅血球將以恆定速度沿管線移動。</p>
             
             <div class="input-group">
                 <label for="startNode">📍 起點 (Start):</label>
@@ -120,7 +98,7 @@
             <button onclick="startNavigation()">開始導航 (Navigate)</button>
 
             <div id="route-output">
-                <div style="color: #7f8c8d; text-align: center; margin-top: 20px;">標準文字路線將顯示在此處...</div>
+                <div style="color: #7f8c8d; text-align: center; margin-top: 20px;">路線及經由血管將顯示在此...</div>
             </div>
         </div>
 
@@ -132,59 +110,52 @@
     </div>
 
     <script>
-        // 定義節點 (包括顯示的器官/心室，以及作為隱藏樞紐的血管主幹)
+        // Nodes now include background drawing definitions
         const nodes = {
-            "頭部與手臂": {x: 250, y: 60, w: 100, h: 40, type: 'organ'},
-            "肺": {x: 250, y: 140, w: 100, h: 40, type: 'organ'},
-            "右心房": {x: 180, y: 240, w: 60, h: 40, type: 'heart'},
-            "左心房": {x: 320, y: 240, w: 60, h: 40, type: 'heart'},
-            "右心室": {x: 180, y: 300, w: 60, h: 40, type: 'heart'},
-            "左心室": {x: 320, y: 300, w: 60, h: 40, type: 'heart'},
-            "肝": {x: 250, y: 420, w: 100, h: 40, type: 'organ'},
-            "小腸": {x: 250, y: 500, w: 100, h: 40, type: 'organ'},
-            "腎": {x: 250, y: 580, w: 100, h: 40, type: 'organ'},
-            "腿": {x: 250, y: 660, w: 100, h: 40, type: 'organ'},
+            "頭部與手臂": {x: 250, y: 60, w: 90, h: 30, type: 'organ', bg: '<path d="M-20,15 C-20,0 20,0 20,15 Z M0,5 C-15,-15 15,-15 0,5 Z" fill="#bdc3c7" opacity="0.5" transform="scale(1.5)" />'},
+            "肺": {x: 250, y: 140, w: 90, h: 30, type: 'organ', bg: '<path d="M-25,15 C-40,-5 -15,-25 -5,-10 C-5,-5 -15,10 -25,15 Z M25,15 C40,-5 15,-25 5,-10 C5,-5 15,10 25,15 Z" fill="#ff7675" opacity="0.4" transform="scale(1.5)" />'},
+            "右心房": {x: 180, y: 240, w: 60, h: 30, type: 'heart'},
+            "左心房": {x: 320, y: 240, w: 60, h: 30, type: 'heart'},
+            "右心室": {x: 180, y: 300, w: 60, h: 30, type: 'heart'},
+            "左心室": {x: 320, y: 300, w: 60, h: 30, type: 'heart'},
+            "肝": {x: 250, y: 420, w: 90, h: 30, type: 'organ', bg: '<path d="M-35,-15 C10,-25 40,-5 35,5 C10,20 -30,15 -35,-15 Z" fill="#d35400" opacity="0.4" transform="scale(1.4)" />'},
+            "小腸": {x: 250, y: 500, w: 90, h: 30, type: 'organ', bg: '<rect x="-35" y="-15" width="70" height="30" rx="10" fill="#f39c12" opacity="0.3" transform="scale(1.3)"/><path d="M-30,0 Q-15,-15 0,0 T30,0" fill="none" stroke="#e67e22" stroke-width="4" opacity="0.5" transform="scale(1.3)"/>'},
+            "腎": {x: 250, y: 580, w: 90, h: 30, type: 'organ', bg: '<path d="M-20,-10 C-30,-20 -30,20 -20,10 C-10,15 -10,-15 -20,-10 Z M20,-10 C30,-20 30,20 20,10 C10,15 10,-15 20,-10 Z" fill="#8e44ad" opacity="0.4" transform="scale(1.4)" />'},
+            "腿": {x: 250, y: 660, w: 90, h: 30, type: 'organ', bg: '<rect x="-20" y="-15" width="12" height="40" rx="5" fill="#bdc3c7" opacity="0.5" transform="scale(1.3)"/><rect x="8" y="-15" width="12" height="40" rx="5" fill="#bdc3c7" opacity="0.5" transform="scale(1.3)"/>'},
 
-            // 隱藏樞紐 (用於圖形尋路，不在地圖上畫框)
             "大動脈樞紐": { type: 'hub' },
             "前腔靜脈樞紐": { type: 'hub' },
             "後腔靜脈樞紐": { type: 'hub' },
             "肺動脈樞紐": { type: 'hub' }
         };
 
-        // 定義連線 (強制直角座標: [X, Y])
-        // 左側主幹 (靜脈) X=80, 右側主幹 (動脈) X=420, 器官邊緣 X=200/300
+        // Paths connect strictly center-to-center. 
+        // The rect text boxes will cover the inner lines visually, but the RBC will travel to the core.
         const edges = [
-            // 肺循環
-            { from: "右心室", to: "肺動脈樞紐", vessel: "肺動脈", path: [[180, 320], [180, 350], [110, 350]], type: 'deoxygenated' },
-            { from: "肺動脈樞紐", to: "肺", vessel: "肺動脈", path: [[110, 350], [110, 140], [200, 140]], type: 'deoxygenated' },
-            { from: "肺", to: "左心房", vessel: "肺靜脈", path: [[300, 140], [350, 140], [350, 220], [320, 220]], type: 'oxygenated' },
-
-            // 心臟內部
-            { from: "左心房", to: "左心室", vessel: "", path: [[320, 260], [320, 280]], type: 'oxygenated' },
-            { from: "右心房", to: "右心室", vessel: "", path: [[180, 260], [180, 280]], type: 'deoxygenated' },
-
-            // 體循環 (大動脈分支)
-            { from: "左心室", to: "大動脈樞紐", vessel: "大動脈", path: [[320, 320], [320, 350], [420, 350]], type: 'oxygenated' },
-            { from: "大動脈樞紐", to: "頭部與手臂", vessel: "頭頸臂動脈", path: [[420, 350], [420, 60], [300, 60]], type: 'oxygenated' },
-            { from: "大動脈樞紐", to: "肝", vessel: "肝動脈", path: [[420, 350], [420, 420], [300, 420]], type: 'oxygenated' },
-            { from: "大動脈樞紐", to: "小腸", vessel: "小腸動脈", path: [[420, 350], [420, 500], [300, 500]], type: 'oxygenated' },
-            { from: "大動脈樞紐", to: "腎", vessel: "腎動脈", path: [[420, 350], [420, 580], [300, 580]], type: 'oxygenated' },
-            { from: "大動脈樞紐", to: "腿", vessel: "腿部動脈", path: [[420, 350], [420, 660], [300, 660]], type: 'oxygenated' },
-
-            // 體循環 (靜脈回流)
-            { from: "頭部與手臂", to: "前腔靜脈樞紐", vessel: "前腔靜脈", path: [[200, 60], [80, 60]], type: 'deoxygenated' },
-            { from: "前腔靜脈樞紐", to: "右心房", vessel: "前腔靜脈", path: [[80, 60], [80, 240], [150, 240]], type: 'deoxygenated' },
-
-            // 肝門靜脈系統 (專屬路線 X=150)
-            { from: "小腸", to: "肝", vessel: "肝門靜脈", path: [[200, 500], [150, 500], [150, 435], [200, 435]], type: 'portal' },
-
-            // 下半身靜脈回流
-            { from: "肝", to: "後腔靜脈樞紐", vessel: "肝靜脈", path: [[200, 420], [80, 420], [80, 500]], type: 'deoxygenated' },
-            { from: "腎", to: "後腔靜脈樞紐", vessel: "腎靜脈", path: [[200, 580], [80, 580], [80, 500]], type: 'deoxygenated' },
-            { from: "腿", to: "後腔靜脈樞紐", vessel: "腿靜脈", path: [[200, 660], [80, 660], [80, 500]], type: 'deoxygenated' },
+            { from: "右心室", to: "肺動脈樞紐", vessel: "肺動脈", path: [[180, 300], [180, 350], [110, 350]], type: 'deoxygenated' },
+            { from: "肺動脈樞紐", to: "肺", vessel: "肺動脈", path: [[110, 350], [110, 140], [250, 140]], type: 'deoxygenated' },
+            { from: "肺", to: "左心房", vessel: "肺靜脈", path: [[250, 140], [350, 140], [350, 240], [320, 240]], type: 'oxygenated' },
             
-            { from: "後腔靜脈樞紐", to: "右心房", vessel: "後腔靜脈", path: [[80, 500], [80, 240], [150, 240]], type: 'deoxygenated' }
+            { from: "左心房", to: "左心室", vessel: "", path: [[320, 240], [320, 300]], type: 'oxygenated' },
+            { from: "右心房", to: "右心室", vessel: "", path: [[180, 240], [180, 300]], type: 'deoxygenated' },
+
+            { from: "左心室", to: "大動脈樞紐", vessel: "大動脈", path: [[320, 300], [320, 350], [390, 350]], type: 'oxygenated' },
+            { from: "大動脈樞紐", to: "頭部與手臂", vessel: "頭頸臂動脈", path: [[390, 350], [390, 60], [250, 60]], type: 'oxygenated' },
+            { from: "大動脈樞紐", to: "肝", vessel: "肝動脈", path: [[390, 350], [390, 420], [250, 420]], type: 'oxygenated' },
+            { from: "大動脈樞紐", to: "小腸", vessel: "小腸動脈", path: [[390, 350], [390, 500], [250, 500]], type: 'oxygenated' },
+            { from: "大動脈樞紐", to: "腎", vessel: "腎動脈", path: [[390, 350], [390, 580], [250, 580]], type: 'oxygenated' },
+            { from: "大動脈樞紐", to: "腿", vessel: "腿部動脈", path: [[390, 350], [390, 660], [250, 660]], type: 'oxygenated' },
+
+            { from: "頭部與手臂", to: "前腔靜脈樞紐", vessel: "前腔靜脈", path: [[250, 60], [110, 60]], type: 'deoxygenated' },
+            { from: "前腔靜脈樞紐", to: "右心房", vessel: "前腔靜脈", path: [[110, 60], [110, 240], [180, 240]], type: 'deoxygenated' },
+
+            { from: "小腸", to: "肝", vessel: "肝門靜脈", path: [[250, 500], [160, 500], [160, 440], [250, 440], [250, 420]], type: 'portal' },
+
+            { from: "肝", to: "後腔靜脈樞紐", vessel: "肝靜脈", path: [[250, 420], [110, 420], [110, 500]], type: 'deoxygenated' },
+            { from: "腎", to: "後腔靜脈樞紐", vessel: "腎靜脈", path: [[250, 580], [110, 580], [110, 500]], type: 'deoxygenated' },
+            { from: "腿", to: "後腔靜脈樞紐", vessel: "腿靜脈", path: [[250, 660], [110, 660], [110, 500]], type: 'deoxygenated' },
+            
+            { from: "後腔靜脈樞紐", to: "右心房", vessel: "後腔靜脈", path: [[110, 500], [110, 240], [180, 240]], type: 'deoxygenated' }
         ];
 
         let currentAnimation = null;
@@ -193,7 +164,6 @@
             const startSelect = document.getElementById('startNode');
             const endSelect = document.getElementById('endNode');
             
-            // 僅加入實際器官/心室供選擇
             Object.keys(nodes).forEach(key => {
                 if (nodes[key].type !== 'hub') {
                     startSelect.add(new Option(key, key));
@@ -201,33 +171,37 @@
                 }
             });
             startSelect.value = "小腸";
-            endSelect.value = "肺";
+            endSelect.value = "頭部與手臂";
 
             drawMap();
         };
 
-        // 將座標陣列轉換為 SVG Path D 屬性
-        function createPathD(points) {
-            return points.map((p, i) => (i === 0 ? `M ${p[0]} ${p[1]}` : `L ${p[0]} ${p[1]}`)).join(' ');
-        }
-
         function drawMap() {
             const svg = document.getElementById('svg-map');
             let linesHTML = '';
-            let nodesHTML = '';
+            let bgHTML = '';
+            let boxHTML = '';
 
-            // 繪製直角血管線條
+            // 1. Draw solid lines
             edges.forEach(edge => {
-                const d = createPathD(edge.path);
+                const d = edge.path.map((p, i) => (i === 0 ? `M ${p[0]} ${p[1]}` : `L ${p[0]} ${p[1]}`)).join(' ');
                 linesHTML += `<path d="${d}" class="vessel-path ${edge.type}" />`;
             });
 
-            // 繪製器官與心臟區塊
+            // 2. Draw Heart Silhouette background
+            bgHTML += `<path d="M250,290 C160,240 190,190 250,230 C310,190 340,240 250,290 Z" fill="#e74c3c" opacity="0.15" />`;
+
+            // 3. Draw Background Organs and Foreground Text Boxes
             for (let name in nodes) {
                 if (nodes[name].type !== 'hub') {
                     const c = nodes[name];
+                    
+                    if (c.bg) {
+                        bgHTML += `<g transform="translate(${c.x}, ${c.y})">${c.bg}</g>`;
+                    }
+
                     const nodeClass = c.type === 'heart' ? 'heart-node' : 'organ-node';
-                    nodesHTML += `
+                    boxHTML += `
                         <rect x="${c.x - c.w/2}" y="${c.y - c.h/2}" width="${c.w}" height="${c.h}" class="${nodeClass}" />
                         <text x="${c.x}" y="${c.y + 4}" text-anchor="middle">${name}</text>
                     `;
@@ -235,11 +209,10 @@
             }
 
             const marker = document.getElementById('rbc-marker');
-            svg.innerHTML = linesHTML + nodesHTML;
+            svg.innerHTML = linesHTML + bgHTML + boxHTML;
             svg.appendChild(marker);
         }
 
-        // BFS 尋路演算法 (找出經過的邊/血管)
         function findEdgePath(start, end) {
             let queue = [[ { node: start, edge: null } ]];
             let visited = new Set();
@@ -252,8 +225,6 @@
 
                 if (!visited.has(currentNode)) {
                     if (path.length > 1 || start !== end) visited.add(currentNode);
-                    
-                    // 尋找連接的下一步
                     let nextEdges = edges.filter(e => e.from === currentNode);
                     for (let edge of nextEdges) {
                         queue.push([...path, { node: edge.to, edge: edge }]);
@@ -263,7 +234,6 @@
             return null;
         }
 
-        // 計算兩點之間的距離 (用於恆定動畫速度)
         function calcDistance(p1, p2) {
             return Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
         }
@@ -275,61 +245,73 @@
             const marker = document.getElementById('rbc-marker');
 
             const fullPath = findEdgePath(start, end);
-
             if (currentAnimation) currentAnimation.cancel();
 
             if (fullPath) {
                 let htmlFormat = `<div class="path-step" style="border-left-color: #f1c40f;">起點: ${start}</div>`;
-                let animationWaypoints = [];
-                let totalDistance = 0;
-
-                // 第一個節點的起始座標
-                const startNodeCoords = nodes[start];
-                animationWaypoints.push({ transform: `translate(${startNodeCoords.x}px, ${startNodeCoords.y}px)` });
-
-                // 整理路線與動畫節點
+                
+                // --- 1. Flatten the Route Points ---
+                let allPoints = [];
                 for (let i = 1; i < fullPath.length; i++) {
-                    const step = fullPath[i];
+                    let step = fullPath[i];
                     
-                    // 文字輸出 (過濾掉隱藏樞紐)
+                    // Generate UI Text
                     if (nodes[step.node].type !== 'hub') {
                         let borderColor = step.edge.type === 'oxygenated' ? '#ff7675' : 
                                           (step.edge.type === 'portal' ? '#a29bfe' : '#74b9ff');
-                        
-                        if (step.edge.vessel) {
-                            htmlFormat += `<div class="vessel-text">⬇ 經由：${step.edge.vessel}</div>`;
-                        }
-                        htmlFormat += `<div class="path-step" style="border-left-color: ${borderColor};">
-                                          ${step.node}
-                                       </div>`;
+                        if (step.edge.vessel) htmlFormat += `<div class="vessel-text">⬇ 經由：${step.edge.vessel}</div>`;
+                        htmlFormat += `<div class="path-step" style="border-left-color: ${borderColor};">${step.node}</div>`;
                     }
 
-                    // 動畫路徑累積
-                    step.edge.path.forEach((point, index) => {
-                        // 避免起點重複
-                        if (index === 0 && animationWaypoints.length > 1) return; 
-                        
-                        let lastPoint = animationWaypoints[animationWaypoints.length - 1];
-                        let lastCoord = lastPoint.transform.match(/translate\(([^p]+)px, ([^p]+)px\)/);
-                        
-                        if (lastCoord) {
-                            totalDistance += calcDistance([parseFloat(lastCoord[1]), parseFloat(lastCoord[2])], point);
+                    // Extract strict path coordinates
+                    step.edge.path.forEach(point => {
+                        if (allPoints.length === 0) {
+                            allPoints.push(point);
+                        } else {
+                            let lastP = allPoints[allPoints.length - 1];
+                            if (lastP[0] !== point[0] || lastP[1] !== point[1]) {
+                                allPoints.push(point);
+                            }
                         }
-                        
-                        animationWaypoints.push({ transform: `translate(${point[0]}px, ${point[1]}px)` });
+                    });
+                }
+                routeOutput.innerHTML = htmlFormat;
+
+                // --- 2. Calculate Strict Distance Offsets for Constant Speed ---
+                let totalDist = 0;
+                let segmentDists = [];
+                for (let i = 1; i < allPoints.length; i++) {
+                    let d = calcDistance(allPoints[i-1], allPoints[i]);
+                    segmentDists.push(d);
+                    totalDist += d;
+                }
+
+                let animationWaypoints = [];
+                let currentDist = 0;
+                
+                // First keyframe at 0% offset
+                animationWaypoints.push({ 
+                    transform: `translate(${allPoints[0][0]}px, ${allPoints[0][1]}px)`, 
+                    offset: 0 
+                });
+
+                // Subsequent keyframes mathematically spaced by exact distance
+                for (let i = 1; i < allPoints.length; i++) {
+                    currentDist += segmentDists[i-1];
+                    let offsetPercent = totalDist === 0 ? 1 : currentDist / totalDist;
+                    animationWaypoints.push({ 
+                        transform: `translate(${allPoints[i][0]}px, ${allPoints[i][1]}px)`, 
+                        offset: offsetPercent 
                     });
                 }
 
-                routeOutput.innerHTML = htmlFormat;
-
-                // 執行恆速動畫 (每 100 像素約 300 毫秒)
                 marker.style.display = 'block';
-                const duration = (totalDistance / 100) * 400; 
+                const duration = (totalDist / 100) * 450; // Constant pixel-to-time ratio
 
                 currentAnimation = marker.animate(animationWaypoints, {
                     duration: duration,
                     fill: 'forwards',
-                    easing: 'linear' // 線性移動，保持恆定速度
+                    easing: 'linear' // Must be linear so the offset handles the speed math
                 });
 
             } else {
