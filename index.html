@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HKDSE 血液循環路線模擬器 (Blood Circulation Simulator)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #b51a1a;
+            text-align: center;
+            border-bottom: 2px solid #b51a1a;
+            padding-bottom: 10px;
+        }
+        .container {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 200px;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+        select {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+            width: 100%;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #result-container {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #e8f4f8;
+            border-left: 5px solid #3498db;
+            border-radius: 5px;
+            display: none;
+        }
+        .path-step {
+            display: inline-block;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            margin: 5px;
+            border: 1px solid #bdc3c7;
+            font-weight: bold;
+        }
+        .arrow {
+            display: inline-block;
+            color: #e74c3c;
+            font-weight: bold;
+            font-size: 20px;
+            vertical-align: middle;
+        }
+        .note {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>HKDSE 血液循環路線模擬器</h1>
+    
+    <div class="container">
+        <p>請選擇紅血球的<strong>起點</strong>和<strong>終點</strong>。模擬器會根據 HKDSE 生物科課程的雙循環系統（包括肝門靜脈等特例）計算出正確的血流路線。</p>
+
+        <div class="controls">
+            <div class="input-group">
+                <label for="startNode">起點 (Start Point):</label>
+                <select id="startNode"></select>
+            </div>
+            <div class="input-group">
+                <label for="endNode">終點 (End Point):</label>
+                <select id="endNode"></select>
+            </div>
+        </div>
+        
+        <button onclick="calculateRoute()">追蹤路線 (Trace Route)</button>
+
+        <div id="result-container">
+            <h3>血流路線 (Route):</h3>
+            <div id="route-output"></div>
+        </div>
+
+        <p class="note">* 註：若經過大動脈後有多條平行路線（例如前往頭部或腿部），模擬器將自動選擇其中一條具代表性的體循環路線展示。</p>
+    </div>
+
+    <script>
+        // 定義循環系統的圖表 (Directed Graph mapping to HKDSE concepts)
+        const circulationGraph = {
+            "肺 (Lungs)": ["肺靜脈 (Pulmonary Vein)"],
+            "肺靜脈 (Pulmonary Vein)": ["左心房 (Left Atrium)"],
+            "左心房 (Left Atrium)": ["左心室 (Left Ventricle)"],
+            "左心室 (Left Ventricle)": ["大動脈 (Aorta)"],
+            
+            // 體循環分支 (Systemic Circulation Branches)
+            "大動脈 (Aorta)": [
+                "頭、頸和臂的動脈", 
+                "肝動脈 (Hepatic Artery)", 
+                "小腸動脈 (Intestinal Artery)", 
+                "腎動脈 (Renal Artery)", 
+                "腿部動脈"
+            ],
+
+            "頭、頸和臂的動脈": ["頭、頸和臂 (Head, Neck & Arms)"],
+            "頭、頸和臂 (Head, Neck & Arms)": ["前腔靜脈 (Anterior Vena Cava)"],
+
+            "肝動脈 (Hepatic Artery)": ["肝 (Liver)"],
+            
+            "小腸動脈 (Intestinal Artery)": ["小腸 (Small Intestine)"],
+            // HKDSE 特殊考點：小腸 -> 肝門靜脈 -> 肝
+            "小腸 (Small Intestine)": ["肝門靜脈 (Hepatic Portal Vein)"],
+            "肝門靜脈 (Hepatic Portal Vein)": ["肝 (Liver)"],
+            
+            "肝 (Liver)": ["肝靜脈 (Hepatic Vein)"],
+            "肝靜脈 (Hepatic Vein)": ["後腔靜脈 (Posterior Vena Cava)"],
+
+            "腎動脈 (Renal Artery)": ["腎 (Kidneys)"],
+            "腎 (Kidneys)": ["腎靜脈 (Renal Vein)"],
+            "腎靜脈 (Renal Vein)": ["後腔靜脈 (Posterior Vena Cava)"],
+
+            "腿部動脈": ["腿 (Legs)"],
+            "腿 (Legs)": ["後腔靜脈 (Posterior Vena Cava)"],
+
+            // 靜脈回流 (Venous Return)
+            "前腔靜脈 (Anterior Vena Cava)": ["右心房 (Right Atrium)"],
+            "後腔靜脈 (Posterior Vena Cava)": ["右心房 (Right Atrium)"],
+            
+            // 肺循環 (Pulmonary Circulation)
+            "右心房 (Right Atrium)": ["右心室 (Right Ventricle)"],
+            "右心室 (Right Ventricle)": ["肺動脈 (Pulmonary Artery)"],
+            "肺動脈 (Pulmonary Artery)": ["肺 (Lungs)"]
+        };
+
+        // 主要器官選項 (供學生選擇)
+        const locations = [
+            "肺 (Lungs)",
+            "左心房 (Left Atrium)",
+            "左心室 (Left Ventricle)",
+            "頭、頸和臂 (Head, Neck & Arms)",
+            "肝 (Liver)",
+            "小腸 (Small Intestine)",
+            "腎 (Kidneys)",
+            "腿 (Legs)",
+            "右心房 (Right Atrium)",
+            "右心室 (Right Ventricle)"
+        ];
+
+        // 初始化下拉選單
+        window.onload = function() {
+            const startSelect = document.getElementById('startNode');
+            const endSelect = document.getElementById('endNode');
+            
+            locations.forEach(loc => {
+                startSelect.add(new Option(loc, loc));
+                endSelect.add(new Option(loc, loc));
+            });
+            // 預設一個經典考題：小腸到肺
+            startSelect.value = "小腸 (Small Intestine)";
+            endSelect.value = "肺 (Lungs)";
+        };
+
+        // 廣度優先搜索演算法 (Breadth-First Search)
+        function findShortestPath(start, end) {
+            let queue = [[start]];
+            let visited = new Set();
+
+            while (queue.length > 0) {
+                let path = queue.shift();
+                let currentNode = path[path.length - 1];
+
+                // 找到目標
+                if (currentNode === end && path.length > 1) {
+                    return path;
+                }
+
+                // 防止死循環，但允許經過心臟的不同心房/心室
+                if (!visited.has(currentNode)) {
+                    // 如果起點和終點相同，我們允許繞一圈，所以不在第一步標記起點為已訪問
+                    if (path.length > 1 || start !== end) {
+                        visited.add(currentNode);
+                    }
+                    
+                    let neighbors = circulationGraph[currentNode] || [];
+                    for (let neighbor of neighbors) {
+                        queue.push([...path, neighbor]);
+                    }
+                }
+            }
+            return null;
+        }
+
+        function calculateRoute() {
+            const start = document.getElementById('startNode').value;
+            const end = document.getElementById('endNode').value;
+            const resultContainer = document.getElementById('result-container');
+            const routeOutput = document.getElementById('route-output');
+
+            const path = findShortestPath(start, end);
+
+            resultContainer.style.display = 'block';
+
+            if (path) {
+                let htmlFormat = '';
+                for (let i = 0; i < path.length; i++) {
+                    // 根據是血管還是器官給予不同顏色
+                    let isVessel = path[i].includes("動脈") || path[i].includes("靜脈") || path[i].includes("Aorta") || path[i].includes("Vein") || path[i].includes("Artery");
+                    let colorStyle = isVessel ? "border-color: #e74c3c; color: #c0392b;" : "border-color: #2980b9; color: #2c3e50; background: #ecf0f1;";
+                    
+                    htmlFormat += `<span class="path-step" style="${colorStyle}">${path[i]}</span>`;
+                    if (i < path.length - 1) {
+                        htmlFormat += `<span class="arrow">➔</span>`;
+                    }
+                }
+                routeOutput.innerHTML = htmlFormat;
+            } else {
+                routeOutput.innerHTML = `<span style="color: red;">無法找到連接路線。</span>`;
+            }
+        }
+    </script>
+</body>
+</html>
